@@ -56,10 +56,12 @@
  * prevented: a hash table is still allowed to grow if the ratio between
  * the number of elements and the buckets > dict_force_resize_ratio. */
 static int dict_can_resize = 1;
+// 字典强制调整大小比例, 即当节点数量 / table size 大于该配置时，扩容
 static unsigned int dict_force_resize_ratio = 5;
 
+// static修饰的函数，只在本文件内可调用
 /* -------------------------- private prototypes ---------------------------- */
-
+ 
 static int _dictExpandIfNeeded(dict *ht);
 static unsigned long _dictNextPower(unsigned long size);
 static long _dictKeyIndex(dict *ht, const void *key, uint64_t hash, dictEntry **existing);
@@ -107,8 +109,9 @@ static void _dictReset(dictht *ht)
 dict *dictCreate(dictType *type,
         void *privDataPtr)
 {
+    // 分配内存
     dict *d = zmalloc(sizeof(*d));
-
+    // 字典初始化
     _dictInit(d,type,privDataPtr);
     return d;
 }
@@ -117,8 +120,10 @@ dict *dictCreate(dictType *type,
 int _dictInit(dict *d, dictType *type,
         void *privDataPtr)
 {
+    // 重置hash table
     _dictReset(&d->ht[0]);
     _dictReset(&d->ht[1]);
+    // 初始化字典字段数据
     d->type = type;
     d->privdata = privDataPtr;
     d->rehashidx = -1;
@@ -132,7 +137,9 @@ int dictResize(dict *d)
 {
     unsigned long minimal;
 
+    // 如果resize开关关闭或正在rehash过程中，则不允许resize
     if (!dict_can_resize || dictIsRehashing(d)) return DICT_ERR;
+    // 计算需要的最小的大小，最少是 DICT_HT_INITIAL_SIZE 大小，即头文件中定义的4
     minimal = d->ht[0].used;
     if (minimal < DICT_HT_INITIAL_SIZE)
         minimal = DICT_HT_INITIAL_SIZE;
@@ -144,20 +151,27 @@ int dictResize(dict *d)
  * Returns DICT_OK if expand was performed, and DICT_ERR if skipped. */
 int _dictExpand(dict *d, unsigned long size, int* malloc_failed)
 {
+    // malloc_failed不为NULL, 先设置其指向的内容为0
     if (malloc_failed) *malloc_failed = 0;
 
+    // 在rehash中(rehashidx字段是否为-1，是则不在rehash，否则在rehash)
+    // 或当前使用的大小已经大于请求的size了，直接返回错误
     /* the size is invalid if it is smaller than the number of
      * elements already inside the hash table */
     if (dictIsRehashing(d) || d->ht[0].used > size)
         return DICT_ERR;
 
     dictht n; /* the new hash table */
+    // 计算实际需要的size, 找到大于该size的最小2次幂数
     unsigned long realsize = _dictNextPower(size);
 
+    // 检查是否溢出, 因为需要分配realsize个节点, 所以需要判断总需求的内存大小是否越界
+    // unsigned越界后又从0开始算起
     /* Detect overflows */
     if (realsize < size || realsize * sizeof(dictEntry*) < realsize)
         return DICT_ERR;
 
+    // size没有变化，不做无用功
     /* Rehashing to the same table size is not useful. */
     if (realsize == d->ht[0].size) return DICT_ERR;
 
@@ -165,6 +179,7 @@ int _dictExpand(dict *d, unsigned long size, int* malloc_failed)
     n.size = realsize;
     n.sizemask = realsize-1;
     if (malloc_failed) {
+        // ztrycalloc在内存分配失败情况下，返回NULL
         n.table = ztrycalloc(realsize*sizeof(dictEntry*));
         *malloc_failed = n.table == NULL;
         if (*malloc_failed)
@@ -172,6 +187,7 @@ int _dictExpand(dict *d, unsigned long size, int* malloc_failed)
     } else
         n.table = zcalloc(realsize*sizeof(dictEntry*));
 
+    // 设置hash table节点数为0
     n.used = 0;
 
     /* Is this the first initialization? If so it's not really a rehashing

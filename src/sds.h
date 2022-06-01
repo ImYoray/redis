@@ -33,7 +33,7 @@
 #ifndef __SDS_H
 #define __SDS_H
 
-#define SDS_MAX_PREALLOC (1024*1024)
+#define SDS_MAX_PREALLOC (1024*1024)    // 预分配内存最大值1M
 extern const char *SDS_NOINIT;
 
 #include <sys/types.h>
@@ -84,6 +84,7 @@ struct __attribute__ ((__packed__)) sdshdr64 {
 #define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
 #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
 
+// 获取sds长度（len字段）
 static inline size_t sdslen(const sds s) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -101,6 +102,7 @@ static inline size_t sdslen(const sds s) {
     return 0;
 }
 
+// 获取sds对象剩余空间（alloc - len）
 static inline size_t sdsavail(const sds s) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -127,6 +129,7 @@ static inline size_t sdsavail(const sds s) {
     return 0;
 }
 
+// 设置sds对象长度值
 static inline void sdssetlen(sds s, size_t newlen) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -151,6 +154,7 @@ static inline void sdssetlen(sds s, size_t newlen) {
     }
 }
 
+// 增加sds对象长度值（len += inc） 
 static inline void sdsinclen(sds s, size_t inc) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
@@ -176,6 +180,7 @@ static inline void sdsinclen(sds s, size_t inc) {
     }
 }
 
+// 获取sds实际分配内存值（alloc）
 /* sdsalloc() = sdsavail() + sdslen() */
 static inline size_t sdsalloc(const sds s) {
     unsigned char flags = s[-1];
@@ -194,6 +199,7 @@ static inline size_t sdsalloc(const sds s) {
     return 0;
 }
 
+// 设置sds实际分配值（alloc）
 static inline void sdssetalloc(sds s, size_t newlen) {
     unsigned char flags = s[-1];
     switch(flags&SDS_TYPE_MASK) {
